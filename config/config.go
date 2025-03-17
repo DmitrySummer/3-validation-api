@@ -19,8 +19,8 @@ func LoadConfig() *Config {
 		log.Println("Error load .env file, use default config")
 	}
 	return &Config{
-		UserEmail: os.Getenv("EMAIL"),
+		UserEmail:    os.Getenv("EMAIL"),
 		UserPassword: os.Getenv("PASSWORD"),
-		UserAddress: os.Getenv("ADDRESS"),
-		},
+		UserAddress:  os.Getenv("ADDRESS"),
+	}
 }
