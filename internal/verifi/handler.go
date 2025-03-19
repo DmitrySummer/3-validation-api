@@ -41,6 +41,7 @@ func NewAuthHandler(router *http.ServeMux, deps VerifiHandler) {
 	router.HandleFunc("POST /verify/{hash}", handler.Verify())
 }
 
+// Обработчик http запроса POST /send
 func (handler *VerifiHandler) Send() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := HandleBody[LoginRequest](&w, r)
@@ -51,20 +52,22 @@ func (handler *VerifiHandler) Send() http.HandlerFunc {
 			Token: "123",
 		}
 		userHash := GetHash(body.Email)
+
 		err = WriteJSON("UserEmail+Hash.txt", body.Email, userHash)
 		if err != nil {
 			fmt.Printf("Ошибка записи в файл ", err)
 		}
-		err = sendEmail(body.Email, userHash)
+		userConfig := config.LoadConfig()
+
+		err = sendEmail(userConfig, body.Email, userHash)
 		if err != nil {
 			fmt.Printf("Ошибка отправки email: ", err)
 		}
 		Json(w, data, 200)
-
 	}
-
 }
 
+// Обработчик http запроса POST /verify/{hash}
 func (handler *VerifiHandler) Verify() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := HandleBody[VerifyHash](&w, r)
@@ -80,6 +83,7 @@ func (handler *VerifiHandler) Verify() http.HandlerFunc {
 	}
 }
 
+// Функция для прочтения файла
 func ReadFile(fileName string, hash string) bool {
 	fileContent, err := os.ReadFile(fileName)
 	if err != nil {
@@ -90,24 +94,26 @@ func ReadFile(fileName string, hash string) bool {
 	return strings.Contains(string(fileContent), hash)
 }
 
+// Функция по созданию hash для отправки пользователю
 func GetHash(toEmail string) string {
 	hash := sha256.Sum256([]byte(toEmail))
 	hexHash := hex.EncodeToString(hash[:])
 	return hexHash
 }
 
-func sendEmail(toEmail, hash string) error {
+// Функция по отправке email сообщения пользователю
+func sendEmail(config *config.Config, toEmail, hash string) error {
 	verifyURL := fmt.Sprintf("http://localhost:8081/verify/%s", hash)
 	message := fmt.Sprintf("Подтверждение Вашего Email\n\nПожалуйста, перейдите по ссылке для подтверждения: %s", verifyURL)
 
 	e := email.NewEmail()
-	e.From = "Сервис подтверждения email <test@gmail.com>"
+	e.From = "Письмо для подтверждения email <" + config.UserEmail + ">"
 	e.To = []string{toEmail}
 	e.Subject = "Подтверждение Email"
 	e.Text = []byte(message)
 
-	auth := smtp.PlainAuth("", "test@gmail.com", "password123", "smtp.gmail.com")
-	err := e.Send("smtp.gmail.com:587", auth)
+	auth := smtp.PlainAuth("", config.UserEmail, config.UserPassword, config.UserHost)
+	err := e.Send(config.UserHost+config.UserPort, auth)
 	if err != nil {
 		return fmt.Errorf("ошибка отправки email: %v", err)
 	}
@@ -129,6 +135,7 @@ func WriteJSON(fileName string, email string, hash string) error {
 	return err
 }
 
+// Функция по обработке входящего запроса
 func HandleBody[T any](w *http.ResponseWriter, r *http.Request) (*T, error) {
 	body, err := Decode[T](r.Body)
 	if err != nil {
@@ -143,12 +150,14 @@ func HandleBody[T any](w *http.ResponseWriter, r *http.Request) (*T, error) {
 	return &body, nil
 }
 
+// Функция по проверке правильного ввода пользователя
 func IsValid[T any](payload T) error {
 	validate := validator.New()
 	err := validate.Struct(payload)
 	return err
 }
 
+// Функция по декодированию поступающего запроса
 func Decode[T any](body io.ReadCloser) (T, error) {
 	var payload T
 	err := json.NewDecoder(body).Decode(&payload)
@@ -158,6 +167,7 @@ func Decode[T any](body io.ReadCloser) (T, error) {
 	return payload, nil
 }
 
+// Функция по добавлению в json
 func Json(w http.ResponseWriter, data any, statusCode int) {
 	w.Header().Set("Content-type", "aplication/json")
 	w.WriteHeader(statusCode)
