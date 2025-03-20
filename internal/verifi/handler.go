@@ -36,7 +36,7 @@ func NewAuthHandler(router *http.ServeMux, deps VerifiHandler) {
 	router.HandleFunc("POST /verify/{hash}", handler.Verify())
 }
 
-// Обработчик http запроса POST /send
+// Обработчик http запроса POST/send
 func (handler *VerifiHandler) Send() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := handlerinto.HandleBody[LoginRequest](&w, r)
@@ -62,7 +62,7 @@ func (handler *VerifiHandler) Send() http.HandlerFunc {
 	}
 }
 
-// Обработчик http запроса POST /verify/{hash}
+// Обработчик http запроса POST/verify/{hash}
 func (handler *VerifiHandler) Verify() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := handlerinto.HandleBody[VerifyHash](&w, r)
